@@ -7,13 +7,15 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // PostRepository defines the methods required for a post repository
 type PostRepository interface {
 	FindByID(id string) (*Post, error)
 	FindAll() ([]*Post, error)
-	Create(post *Post) (*Post, error)
+	Search(filters PostSearchFilters) ([]*Post, error)
+	CreateWithLinks(post *Post, groupIDs []string, institutionIDs []string) (*Post, error)
 	Update(post *Post) error
 	Delete(id string) error
 }
@@ -37,13 +39,28 @@ func validatePostInput(post *Post) error {
 	if post.Content != "" && len(post.Content) < 10 {
 		return errors.New("content must be at least 10 characters")
 	}
+	if post.Price < 0 {
+		return errors.New("price cannot be negative")
+	}
+	if post.Rooms < 0 {
+		return errors.New("rooms cannot be negative")
+	}
+	if post.Bathrooms < 0 {
+		return errors.New("bathrooms cannot be negative")
+	}
+	if post.RoomsOccupied < 0 || post.RoomsOccupied > post.Rooms {
+		return errors.New("rooms occupied cannot be negative or exceed total rooms")
+	}
 	return nil
 }
 
 // CreatePost creates a new post
 func (s *Service) CreatePost(req *CreatePostRequest) (*Post, error) {
 	post := &Post{
-		UserID: req.UserID,
+		ID:              uuid.New().String(),
+		UserID:          req.UserID,
+		CreatedByUserID: req.UserID,
+		UpdatedByUserID: req.UserID,
 	}
 
 	if req.Address != nil {
@@ -74,14 +91,38 @@ func (s *Service) CreatePost(req *CreatePostRequest) (*Post, error) {
 		post.PropertyType = *req.PropertyType
 	}
 	if req.Term != nil {
-		post.Term = string(*req.Term)
+		post.Term = *req.Term
 	}
 
 	// Set timestamps
 	post.CreatedAt = time.Now()
 	post.UpdatedAt = time.Now()
 
-	return s.repo.Create(post)
+	groupIDs := uniqueIDs(req.GroupIDs)
+	institutionIDs := uniqueIDs(req.InstitutionIDs)
+
+	return s.repo.CreateWithLinks(post, groupIDs, institutionIDs)
+}
+
+func uniqueIDs(ids []string) []string {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{}, len(ids))
+	unique := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if id == "" {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		unique = append(unique, id)
+	}
+
+	return unique
 }
 
 // GetPost retrieves a post by ID
@@ -100,6 +141,29 @@ func (s *Service) GetAllPosts() ([]*Post, error) {
 	return []*Post{}, nil
 }
 
+// SearchPosts retrieves posts using backend filters, sorting, and pagination.
+func (s *Service) SearchPosts(filters PostSearchFilters) ([]*Post, error) {
+	if s.repo == nil {
+		return nil, fmt.Errorf("repository not initialized")
+	}
+
+	if filters.MinPrice != nil && filters.MaxPrice != nil && *filters.MinPrice > *filters.MaxPrice {
+		return nil, errors.New("minPrice cannot be greater than maxPrice")
+	}
+
+	if filters.Limit <= 0 {
+		filters.Limit = 20
+	}
+	if filters.Limit > 100 {
+		filters.Limit = 100
+	}
+	if filters.Offset < 0 {
+		filters.Offset = 0
+	}
+
+	return s.repo.Search(filters)
+}
+
 // UpdatePost updates an existing post
 func (s *Service) UpdatePost(id string, req UpdatePostRequest, userID string, userRole string) (*Post, error) {
 	if s.repo == nil {
@@ -116,7 +180,7 @@ func (s *Service) UpdatePost(id string, req UpdatePostRequest, userID string, us
 	}
 
 	// Check if the user is allowed to update the post
-	if userRole != "admin" && post.CreatedBy != userID {
+	if userRole != "admin" && post.CreatedByUserID != userID {
 		return nil, errors.New("you are not allowed to update this post")
 	}
 
@@ -149,11 +213,11 @@ func (s *Service) UpdatePost(id string, req UpdatePostRequest, userID string, us
 		post.PropertyType = *req.PropertyType
 	}
 	if req.Term != nil {
-		post.Term = string(*req.Term)
+		post.Term = *req.Term
 	}
 
 	// Update metadata fields
-	post.UpdatedBy = userID
+	post.UpdatedByUserID = userID
 	post.UpdatedAt = time.Now()
 
 	// Validate required fields

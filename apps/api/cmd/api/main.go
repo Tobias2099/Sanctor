@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"sanctor/internal/dm"
 	"os"
 	"sanctor/internal/auth"
+	"sanctor/internal/comment"
 	"sanctor/internal/database"
 	"sanctor/internal/group"
+	"sanctor/internal/institution"
 	"sanctor/internal/picture"
 	"sanctor/internal/post"
 	"sanctor/internal/user"
@@ -53,27 +54,16 @@ func main() {
 		} else {
 			defer db.Close()
 
-			// Run auto-migration for core models
-			if err := db.AutoMigrate(&user.User{}, &group.Group{}, &group.UserGroup{}, &picture.Picture{}); err != nil {
-				log.Printf("⚠️  Failed to migrate core tables: %v", err)
-			}
-
-			// Migrate posts separately (existing data may have type issues)
-			if err := db.AutoMigrate(&post.Post{}); err != nil {
-				log.Printf("⚠️  Failed to migrate posts table: %v", err)
-			}
-
-			// Migrate DM tables independently so they always get created
-			if err := db.AutoMigrate(&dm.DMGroup{}, &dm.DMGroupUser{}, &dm.DMMessage{}); err != nil {
-				log.Printf("⚠️  Failed to migrate DM tables: %v", err)
-			} else {
-				log.Println("✅ DM tables migrated successfully")
+			// Run auto-migration for all models
+			if err := db.AutoMigrate(&user.User{}, &group.Group{}, &group.UserGroup{}, &group.GroupInstitution{}, &post.Post{}, &post.PostGroup{}, &post.PostInstitution{}, &comment.Comment{}, &picture.Picture{}, &institution.Institution{}); err != nil {
+				log.Printf("⚠️  Failed to migrate database: %v", err)
 			}
 
 			log.Println("Initializing modules with database...")
 			user.InitWithDatabase(db)
 			group.InitWithDatabase(db)
-			dm.InitWithDatabase(db)
+			institution.InitWithDatabase(db)
+			comment.InitWithDatabase(db)
 			log.Println("✅ Database initialized successfully")
 		}
 	} else {
@@ -107,12 +97,12 @@ func main() {
 	// Group messaging endpoints
 	http.HandleFunc("/api/groups/messages/send", group.SendGroupMessage)
 
-	// DM endpoints
-	http.HandleFunc("/api/dm/groups/direct", dm.CreateDirectGroup)
-	http.HandleFunc("/api/dm/groups", dm.GetUserGroups)
-	http.HandleFunc("/api/dm/messages", dm.GetMessages)
-	http.HandleFunc("/api/dm/messages/send", dm.SendMessage)
-	http.HandleFunc("/api/dm/ws", dm.HandleWebSocket)
+	// Institution endpoints
+	http.HandleFunc("/api/institutions", institution.GetInstitutions)
+	http.HandleFunc("/api/institutions/get", institution.GetInstitution)
+	http.HandleFunc("/api/institutions/create", institution.CreateInstitution)
+	http.HandleFunc("/api/institutions/update", institution.UpdateInstitution)
+	http.HandleFunc("/api/institutions/delete", institution.DeleteInstitution)
 
 	// Post endpoints - use database if available
 	var postService *post.Service
@@ -125,10 +115,18 @@ func main() {
 	}
 	postHandler := post.NewHandler(postService)
 	http.HandleFunc("/api/posts", postHandler.GetPosts)
+	http.HandleFunc("/api/posts/search", postHandler.SearchPosts)
 	http.HandleFunc("/api/posts/get", postHandler.GetPost)
 	http.HandleFunc("/api/posts/create", postHandler.CreatePost)
 	http.HandleFunc("/posts/", postHandler.UpdatePost) // Updated route for UpdatePost
 	http.HandleFunc("/api/posts/delete", postHandler.DeletePost)
+
+	// Comment endpoints
+	http.HandleFunc("/api/comments", comment.GetComments)
+	http.HandleFunc("/api/comments/get", comment.GetComment)
+	http.HandleFunc("/api/comments/create", comment.CreateComment)
+	http.HandleFunc("/api/comments/update", comment.UpdateComment)
+	http.HandleFunc("/api/comments/delete", comment.DeleteComment)
 
 	// Initialize shared user service
 	userRepo := user.NewRepository()
