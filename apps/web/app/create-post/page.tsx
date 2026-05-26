@@ -5,7 +5,7 @@ import { BrandLogo } from "@/components/navigation/brand-logo";
 
 export default function CreatePostPage() {
   return (
-    <main className="min-h-screen bg-white px-4 py-8 font-sans text-[#1A1A1A]">
+    <main className="min-h-screen bg-brand-cream px-4 py-8 font-sans text-[#1A1A1A]">
       <div className="mx-auto max-w-5xl">
         <div className="mb-8 flex items-center justify-between gap-4">
           <BrandLogo />

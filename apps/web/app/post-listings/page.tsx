@@ -98,35 +98,37 @@ export default function PostListingsPage() {
   }, []);
 
   return (
-    <AppShell>
-      <div className="mx-auto max-w-7xl px-4 pt-6 pb-10 sm:px-6 lg:px-8">
-        <HousingFilterPanel />
+    <AppShell surface="cream">
+      <div className="page-surface min-h-[calc(100vh-5rem)]">
+        <div className="mx-auto max-w-7xl px-4 pt-6 pb-10 sm:px-6 lg:px-8">
+          <HousingFilterPanel />
 
-        {isLoading && (
-          <p className="py-12 text-center text-sm font-bold uppercase tracking-[0.18em] text-gray-400">
-            Loading listings...
-          </p>
-        )}
+          {isLoading && (
+            <p className="py-12 text-center text-sm font-bold uppercase tracking-[0.18em] text-gray-400">
+              Loading listings...
+            </p>
+          )}
 
-        {!isLoading && error && (
-          <p className="py-12 text-center text-sm font-bold text-red-600">{error}</p>
-        )}
+          {!isLoading && error && (
+            <p className="py-12 text-center text-sm font-bold text-red-600">{error}</p>
+          )}
 
-        {!isLoading && !error && listings.length === 0 && (
-          <p className="py-12 text-center text-sm font-bold uppercase tracking-[0.18em] text-gray-400">
-            No listings yet.
-          </p>
-        )}
+          {!isLoading && !error && listings.length === 0 && (
+            <p className="py-12 text-center text-sm font-bold uppercase tracking-[0.18em] text-gray-400">
+              No listings yet.
+            </p>
+          )}
 
-        {!isLoading && !error && listings.length > 0 && (
-          <PaginatedListingsGrid
-            listings={listings}
-            pageSize={20}
-            bookmarkedListingIds={bookmarkedListingIds}
-            pendingBookmarkIds={pendingBookmarkIds}
-            onToggleBookmark={handleToggleBookmark}
-          />
-        )}
+          {!isLoading && !error && listings.length > 0 && (
+            <PaginatedListingsGrid
+              listings={listings}
+              pageSize={20}
+              bookmarkedListingIds={bookmarkedListingIds}
+              pendingBookmarkIds={pendingBookmarkIds}
+              onToggleBookmark={handleToggleBookmark}
+            />
+          )}
+        </div>
       </div>
     </AppShell>
   );

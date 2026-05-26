@@ -4,6 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  --page-background: #FFFBF2;
   --background: oklch(0.985 0.012 75);
   --foreground: oklch(0.26 0.03 45);
   --card: oklch(0.998 0.008 70);
@@ -43,7 +44,7 @@
   --font-sans: 'Avenir Next', 'Segoe UI', sans-serif;
   --font-mono: 'SFMono-Regular', 'Menlo', monospace;
   --color-brand-orange: #F27D26;
-  --color-brand-cream: #FFFBF2;
+  --color-brand-cream: var(--page-background);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -88,5 +89,14 @@
   }
   body {
     @apply bg-brand-cream text-[#1A1A1A] antialiased;
+  }
+  html,
+  body,
+  main {
+    background-color: var(--page-background) !important;
+  }
+
+  .page-surface {
+    background-color: var(--page-background) !important;
   }
 }
